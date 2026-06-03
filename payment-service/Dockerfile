@@ -6,6 +6,7 @@ COPY common/src common/src
 COPY payment-service/pom.xml payment-service/pom.xml
 COPY order-service/pom.xml order-service/pom.xml
 COPY fulfillment-service/pom.xml fulfillment-service/pom.xml
+COPY notification-service/pom.xml notification-service/pom.xml
 RUN mvn dependency:go-offline -pl payment-service -am -q
 COPY payment-service/src payment-service/src
 RUN mvn package -pl payment-service -am -DskipTests -q
