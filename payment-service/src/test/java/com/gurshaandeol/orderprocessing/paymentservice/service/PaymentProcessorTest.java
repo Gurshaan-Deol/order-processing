@@ -5,10 +5,13 @@ import com.gurshaandeol.orderprocessing.common.event.PaymentProcessed;
 import com.gurshaandeol.orderprocessing.common.model.LineItem;
 import com.gurshaandeol.orderprocessing.common.model.ShippingAddress;
 import com.gurshaandeol.orderprocessing.paymentservice.kafka.PaymentEventPublisher;
+import com.gurshaandeol.orderprocessing.paymentservice.model.DeadLetterEntry;
 import com.gurshaandeol.orderprocessing.paymentservice.model.EventLogEntry;
+import com.gurshaandeol.orderprocessing.paymentservice.repository.DeadLetterRepository;
 import com.gurshaandeol.orderprocessing.paymentservice.repository.EventLogRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -16,6 +19,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -32,9 +36,12 @@ class PaymentProcessorTest {
     @Mock
     private PaymentEventPublisher paymentEventPublisher;
 
+    @Mock
+    private DeadLetterRepository deadLetterRepository;
+
     @Test
     void process_paymentSucceeds_publishSuccessCalledOnce() {
-        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, 0.0);
+        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, deadLetterRepository, 0.0);
         OrderPlaced event = buildEvent();
         when(eventLogRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(eventLogRepository.save(any(EventLogEntry.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -47,7 +54,7 @@ class PaymentProcessorTest {
 
     @Test
     void process_paymentFails_publishFailureCalledAndSuccessNeverCalled() {
-        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, 1.0);
+        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, deadLetterRepository, 1.0);
         OrderPlaced event = buildEvent();
         when(eventLogRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(eventLogRepository.save(any(EventLogEntry.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -60,7 +67,7 @@ class PaymentProcessorTest {
 
     @Test
     void process_duplicateEvent_neitherPublishMethodCalled() {
-        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, 0.0);
+        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, deadLetterRepository, 0.0);
         OrderPlaced event = buildEvent();
         when(eventLogRepository.existsByEventId(event.eventId())).thenReturn(true);
 
@@ -72,7 +79,7 @@ class PaymentProcessorTest {
 
     @Test
     void process_nonDuplicateEvent_repositorySaveCalledExactlyOnce() {
-        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, 0.0);
+        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, deadLetterRepository, 0.0);
         OrderPlaced event = buildEvent();
         when(eventLogRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(eventLogRepository.save(any(EventLogEntry.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -80,6 +87,19 @@ class PaymentProcessorTest {
         processor.process(event);
 
         verify(eventLogRepository, times(1)).save(any(EventLogEntry.class));
+    }
+
+    @Test
+    void process_paymentFails_deadLetterRepositorySaveCalledWithMatchingOriginalEventId() {
+        PaymentProcessor processor = new PaymentProcessor(eventLogRepository, paymentEventPublisher, deadLetterRepository, 1.0);
+        OrderPlaced event = buildEvent();
+        when(eventLogRepository.existsByEventId(event.eventId())).thenReturn(false);
+
+        processor.process(event);
+
+        ArgumentCaptor<DeadLetterEntry> captor = ArgumentCaptor.forClass(DeadLetterEntry.class);
+        verify(deadLetterRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getOriginalEventId()).isEqualTo(event.eventId());
     }
 
     private OrderPlaced buildEvent() {

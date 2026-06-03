@@ -14,25 +14,31 @@ An event-driven order processing system built with Java 21, Spring Boot, Apache 
   │     (REST API :8080) │◄────── HTTP client
   └──────────┬───────────┘
              │ orders.placed
-             ▼
-  ┌──────────────────────┐
-  │   payment-service    │
-  │   (Kafka consumer)   │
-  └──────┬───────┬───────┘
-         │       │ (failure)
-         │       ▼
-         │   orders.dlq (Kafka)
-         │   dead_letter (MongoDB)
-         │
-         │ payments.processed
-         ▼
-  ┌──────────────────────┐
-  │     order-service    │  updates order status
-  │  (Kafka consumer)    │──────────────────────► MongoDB (orders)
-  └──────────────────────┘
+             ├─────────────────────────────────────────────────┐
+             ▼                                                 ▼
+  ┌──────────────────────┐                       ┌─────────────────────────┐
+  │   payment-service    │                       │   notification-service   │
+  │   (Kafka consumer)   │                       │   (fan-out consumer,    │
+  └──────┬───────┬───────┘                       │    all three topics)    │
+         │       │ (failure)                     └─────────────────────────┘
+         │       ▼                                           ▲         ▲
+         │   orders.dlq (Kafka)                              │         │
+         │   dead_letter (MongoDB)                           │         │
+         │                                                   │         │
+         │ payments.processed ───────────────────────────────┘         │
+         ├────────────────────────────────────┐                        │
+         ▼                                   ▼                         │
+  ┌──────────────────────┐   ┌───────────────────────┐                 │
+  │     order-service    │   │  fulfillment-service   │────────────────┘
+  │  (status update)     │   │  (Kafka consumer)     │  orders.fulfilled
+  └──────────────────────┘   └────────────┬───────────┘
+         │                                │ orders.fulfilled
+         ▼                                ▼
+    MongoDB (orders)           ┌──────────────────────┐
+                               │     order-service    │  status → FULFILLED
+                               │  (Kafka consumer)   │──────────────────────► MongoDB (orders)
+                               └──────────────────────┘
 ```
-
-> fulfillment-service and notification-service coming in Stage 2.
 
 ---
 
@@ -139,8 +145,8 @@ order-processing/
 ├── common/                  # Sealed OrderEvent interface and permitted records
 ├── order-service/           # REST API (POST /orders, GET /orders/{id}), Kafka producer + consumer
 ├── payment-service/         # Kafka consumer, payment simulation, DLQ publisher
-├── fulfillment-service/     # (Stage 2 — coming soon)
-├── notification-service/    # (Stage 2 — coming soon)
+├── fulfillment-service/     # Kafka consumer, fulfillment processing, OrderFulfilled publisher
+├── notification-service/    # Kafka fan-out consumer, structured notification logging
 ├── docker-compose.yml
 └── CLAUDE.md
 ```
@@ -162,4 +168,4 @@ mvn test -pl order-service -am
 mvn test -pl payment-service -am
 ```
 
-13 unit tests across two services (JUnit 5 + Mockito). Integration tests with Testcontainers for Kafka and MongoDB are planned for Stage 2.
+17 unit tests across four services (JUnit 5 + Mockito). Integration tests with Testcontainers for Kafka and MongoDB are planned for Stage 2.
