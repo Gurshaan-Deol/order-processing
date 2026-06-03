@@ -83,6 +83,16 @@ Consumer logic uses `switch (event) { case OrderPlaced op -> ... }` instead of a
 
 ---
 
+## Performance
+
+Load tested with 50 orders on a local Docker Compose stack:
+
+- **Throughput: 7.4 orders/sec** (end-to-end REST → Kafka → MongoDB)
+- **Average payment processing latency: 32ms** (from `GET /metrics`, computed from `event_log` timestamps)
+- **Event fan-out:** each order triggers 3 Kafka events consumed by up to 3 independent consumer groups
+
+---
+
 ## Running Locally
 
 ### Prerequisites
@@ -130,6 +140,13 @@ curl http://localhost:8080/orders/{id}/status
 
 Within a few seconds the status transitions from `PLACED` to `PAYMENT_PROCESSED` (or `FAILED` — payment-service simulates a 20% failure rate by default).
 
+### Load test
+
+```bash
+chmod +x load-test.sh
+./load-test.sh   # requires docker compose to be running
+```
+
 ### Stop
 
 ```bash
@@ -168,4 +185,4 @@ mvn test -pl order-service -am
 mvn test -pl payment-service -am
 ```
 
-17 unit tests across four services (JUnit 5 + Mockito). Integration tests with Testcontainers for Kafka and MongoDB are planned for Stage 2.
+28 unit tests across four services (JUnit 5 + Mockito). Integration tests with Testcontainers for Kafka and MongoDB are planned for Stage 2.

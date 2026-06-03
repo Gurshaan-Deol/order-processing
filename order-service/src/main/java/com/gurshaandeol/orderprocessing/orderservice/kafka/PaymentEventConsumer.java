@@ -2,7 +2,9 @@ package com.gurshaandeol.orderprocessing.orderservice.kafka;
 
 import com.gurshaandeol.orderprocessing.common.event.OrderFulfilled;
 import com.gurshaandeol.orderprocessing.common.event.PaymentProcessed;
+import com.gurshaandeol.orderprocessing.orderservice.model.EventLogEntry;
 import com.gurshaandeol.orderprocessing.orderservice.model.Order;
+import com.gurshaandeol.orderprocessing.orderservice.repository.EventLogRepository;
 import com.gurshaandeol.orderprocessing.orderservice.repository.OrderRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class PaymentEventConsumer {
@@ -20,9 +23,11 @@ public class PaymentEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(PaymentEventConsumer.class);
 
     private final OrderRepository orderRepository;
+    private final EventLogRepository eventLogRepository;
 
-    public PaymentEventConsumer(OrderRepository orderRepository) {
+    public PaymentEventConsumer(OrderRepository orderRepository, EventLogRepository eventLogRepository) {
         this.orderRepository = orderRepository;
+        this.eventLogRepository = eventLogRepository;
     }
 
     /** Consumes PaymentProcessed and OrderFulfilled events and updates order status in MongoDB. */
@@ -52,6 +57,12 @@ public class PaymentEventConsumer {
     }
 
     private void handlePaymentProcessed(PaymentProcessed event, Acknowledgment ack) {
+        if (eventLogRepository.existsByEventId(event.eventId())) {
+            log.info("Duplicate event detected, skipping: eventId={}", event.eventId());
+            ack.acknowledge();
+            return;
+        }
+
         Optional<Order> found = orderRepository.findById(event.orderId());
         if (found.isEmpty()) {
             log.warn("Received PaymentProcessed for unknown orderId={}, acknowledging and skipping",
@@ -72,10 +83,26 @@ public class PaymentEventConsumer {
             orderRepository.save(order);
             log.warn("Order status updated to FAILED for orderId={}", event.orderId());
         }
+
+        eventLogRepository.save(new EventLogEntry(
+                UUID.randomUUID().toString(),
+                event.eventId(),
+                event.type(),
+                event.orderId(),
+                event,
+                Instant.now(),
+                "order-service"
+        ));
         ack.acknowledge();
     }
 
     private void handleOrderFulfilled(OrderFulfilled event, Acknowledgment ack) {
+        if (eventLogRepository.existsByEventId(event.eventId())) {
+            log.info("Duplicate event detected, skipping: eventId={}", event.eventId());
+            ack.acknowledge();
+            return;
+        }
+
         Optional<Order> found = orderRepository.findById(event.orderId());
         if (found.isEmpty()) {
             log.warn("Received OrderFulfilled for unknown orderId={}, acknowledging and skipping",
@@ -89,6 +116,16 @@ public class PaymentEventConsumer {
         order.setTrackingNumber(event.trackingNumber());
         order.setUpdatedAt(Instant.now());
         orderRepository.save(order);
+
+        eventLogRepository.save(new EventLogEntry(
+                UUID.randomUUID().toString(),
+                event.eventId(),
+                event.type(),
+                event.orderId(),
+                event,
+                Instant.now(),
+                "order-service"
+        ));
         ack.acknowledge();
         log.info("Order status updated to FULFILLED for orderId={}, trackingNumber={}",
                 event.orderId(), event.trackingNumber());
