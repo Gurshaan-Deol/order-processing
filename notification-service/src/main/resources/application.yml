@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: notification-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.gurshaandeol.orderprocessing.common.event"
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+
+logging:
+  level:
+    com.gurshaandeol.orderprocessing: DEBUG

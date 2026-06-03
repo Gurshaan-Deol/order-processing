@@ -95,5 +95,15 @@ services:
       mongodb:
         condition: service_healthy
 
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
 volumes:
   mongo-data:
