@@ -1,0 +1,43 @@
+[33mcommit dcef3bc3f18d74380c9cd8a8b9a16a2d802e7957[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Gurshaan <shaandeoltml@gmail.com>
+Date:   Tue Jun 2 19:25:32 2026 -0400
+
+    feat: add common module with sealed event hierarchy
+
+ .gitignore                                         |  24 [32m+++[m
+ ADR.md                                             | 136 [32m++++++++++++[m
+ CLAUDE.md                                          | 156 [32m++++++++++++++[m
+ PRD.md                                             | 236 [32m+++++++++++++++++++++[m
+ common/pom.xml                                     |  26 [32m+++[m
+ .../orderprocessing/common/event/OrderEvent.java   |  12 [32m++[m
+ .../common/event/OrderFulfilled.java               |  30 [32m+++[m
+ .../orderprocessing/common/event/OrderPlaced.java  |  39 [32m++++[m
+ .../common/event/PaymentProcessed.java             |  33 [32m+++[m
+ .../orderprocessing/common/model/LineItem.java     |  23 [32m++[m
+ .../common/model/ShippingAddress.java              |  24 [32m+++[m
+ docker-compose.yml                                 |  86 [32m++++++++[m
+ order-service/Dockerfile                           |  17 [32m++[m
+ order-service/pom.xml                              |  61 [32m++++++[m
+ .../orderservice/OrderServiceApplication.java      |  12 [32m++[m
+ .../orderservice/config/JacksonConfig.java         |  18 [32m++[m
+ .../orderservice/controller/OrderController.java   |  64 [32m++++++[m
+ .../orderservice/dto/OrderResponse.java            |  18 [32m++[m
+ .../orderservice/dto/PlaceOrderRequest.java        |  32 [32m+++[m
+ .../orderservice/kafka/OrderEventPublisher.java    |  25 [32m+++[m
+ .../orderprocessing/orderservice/model/Order.java  |  66 [32m++++++[m
+ .../orderservice/repository/OrderRepository.java   |   7 [32m+[m
+ .../orderservice/service/OrderService.java         |  80 [32m+++++++[m
+ order-service/src/main/resources/application.yml   |  20 [32m++[m
+ .../orderservice/service/OrderServiceTest.java     | 114 [32m++++++++++[m
+ payment-service/Dockerfile                         |  16 [32m++[m
+ payment-service/pom.xml                            |  53 [32m+++++[m
+ .../paymentservice/PaymentServiceApplication.java  |  12 [32m++[m
+ .../paymentservice/kafka/OrderEventConsumer.java   |  70 [32m++++++[m
+ .../kafka/PaymentEventPublisher.java               |  43 [32m++++[m
+ .../paymentservice/model/EventLogEntry.java        |  53 [32m+++++[m
+ .../repository/EventLogRepository.java             |  10 [32m+[m
+ .../paymentservice/service/PaymentProcessor.java   |  69 [32m++++++[m
+ payment-service/src/main/resources/application.yml |  31 [32m+++[m
+ .../service/PaymentProcessorTest.java              |  96 [32m+++++++++[m
+ pom.xml                                            |  29 [32m+++[m
+ 36 files changed, 1841 insertions(+)
