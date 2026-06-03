@@ -1,6 +1,5 @@
 # CLAUDE.md — Order Processing System
 
-1
 This file tells Claude Code how to work on this project. Read it before touching any file.
 
 ---
@@ -16,12 +15,13 @@ It is a portfolio project for a CS internship application. Code quality and clar
 
 ```
 order-processing/
-├── order-service/          # REST API, Kafka producer
-├── payment-service/        # Kafka consumer, payment logic
-├── fulfillment-service/    # Kafka consumer, fulfillment logic
-├── notification-service/   # Kafka consumer, fan-out demo
+├── order-service/          # REST API, Kafka producer + multi-topic consumer, GET /metrics
+├── payment-service/        # Kafka consumer, payment logic, DLQ routing
+├── fulfillment-service/    # Kafka consumer, fulfillment logic, OrderFulfilled publisher
+├── notification-service/   # Kafka fan-out consumer on all three event topics
 ├── common/                 # Shared event types (sealed interfaces, records)
 ├── docker-compose.yml      # Kafka + Zookeeper + MongoDB + all services
+├── load-test.sh            # Places 50 orders and reports throughput numbers
 └── CLAUDE.md
 ```
 
@@ -108,27 +108,30 @@ Each service is an independent Maven module. The `common` module is a shared lib
 
 ---
 
-## What to build first (Stage 1)
+## What is built (all stages complete)
 
+**Stage 1**
 1. `common` module with sealed `OrderEvent` interface and record implementations
-2. `order-service` with `POST /orders` and `GET /orders/{id}`
-3. Kafka producer in order-service publishing to `orders.placed`
-4. `payment-service` consuming `orders.placed` and publishing to `payments.processed`
-5. MongoDB persistence in both services
-6. `docker-compose.yml` with Kafka + Zookeeper + MongoDB + both services
+2. `order-service` — `POST /orders`, `GET /orders/{id}`, `GET /orders/{id}/status`, Kafka producer
+3. `payment-service` — consumes `orders.placed`, publishes `payments.processed`, DLQ on failure
+4. MongoDB persistence in both services
+5. `docker-compose.yml` with Kafka + Zookeeper + MongoDB + all services
 
-Do not start Stage 2 (fulfillment, notification, DLQ, metrics) until Stage 1 is working end-to-end.
+**Stage 2**
+6. `fulfillment-service` — consumes `payments.processed`, publishes `orders.fulfilled`
+7. `notification-service` — fan-out consumer on all three event topics
+8. DLQ routing — payment failures go to `orders.dlq` (Kafka) and `dead_letter` (MongoDB)
+9. `GET /metrics` on order-service — totalOrders, paymentsProcessed, ordersFulfilled, dlqCount, avgPaymentProcessingMs, uptime
+10. Idempotency checks in payment-service and order-service via `event_log` collection
+11. Structured JSON logging via logstash-logback-encoder in all four services
+12. `load-test.sh` — places 50 orders, reports throughput and final status breakdown
 
----
-
-## What done looks like for Stage 1
-
-- `docker compose up` starts everything with no errors
+**What the running system looks like**
+- `docker compose up --build` starts all 7 containers with no errors
 - `POST /orders` returns 201 with an order ID
-- The order appears in MongoDB with status `PLACED`
-- Within a few seconds, status changes to `PAYMENT_PROCESSED`
-- Kafka consumer logs show the event being processed
-- `GET /orders/{id}/status` reflects the current state
+- Order status flows: `PLACED` → `PAYMENT_PROCESSED` → `FULFILLED` (or `FAILED` + DLQ)
+- All logs emit structured JSON with `@timestamp`, `level`, `service`, `message` fields
+- `./load-test.sh` produces: ~7 orders/sec throughput, ~30ms avg payment latency
 
 ---
 
@@ -142,7 +145,7 @@ Do not start Stage 2 (fulfillment, notification, DLQ, metrics) until Stage 1 is 
 
 ---
 
-## The /metrics endpoint (Stage 2)
+## The /metrics endpoint
 
 Lives on Order Service at `GET /metrics`. Returns JSON with:
 

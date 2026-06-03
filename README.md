@@ -6,7 +6,7 @@ An event-driven order processing system built with Java 21, Spring Boot, Apache 
 
 ## Architecture
 
-`POST /orders` hits order-service, which persists the order to MongoDB and publishes an `OrderPlaced` event to Kafka. payment-service consumes that event, simulates payment processing, and publishes either a `PaymentProcessed` event (on success) or routes to the dead letter queue (on failure). order-service consumes `PaymentProcessed` and updates the order status. Services communicate exclusively via Kafka topics — no direct HTTP calls between them.
+`POST /orders` hits order-service, which persists the order to MongoDB and publishes an `OrderPlaced` event to Kafka. payment-service consumes that event, simulates payment processing, and publishes either a `PaymentProcessed` event (on success) or routes to the dead letter queue (on failure). fulfillment-service consumes `PaymentProcessed`, generates a tracking number, and publishes an `OrderFulfilled` event. order-service consumes both `PaymentProcessed` and `OrderFulfilled`, updating the order status accordingly. notification-service subscribes to all three event topics for fan-out logging. Services communicate exclusively via Kafka topics — no direct HTTP calls between them.
 
 ```
   ┌──────────────────────┐
@@ -75,7 +75,7 @@ Consumer logic uses `switch (event) { case OrderPlaced op -> ... }` instead of a
 
 - **Manual offset commit.** `enable.auto.commit=false` means offsets are committed only after the MongoDB write succeeds. Auto-commit can acknowledge a message before it has been processed; if the service crashes in that window, the event is silently lost. Manual commit ensures at-least-once delivery — the worst case is a redelivery, not a drop.
 
-- **Idempotency check in payment-service.** Before processing any `OrderPlaced` event, payment-service checks the `event_log` collection for the event ID. If it already exists, the event is a redelivery and is skipped. This makes at-least-once delivery safe in practice: the first delivery succeeds, subsequent ones are no-ops.
+- **Idempotency checks in payment-service and order-service.** Before processing any event, each service checks the `event_log` collection for the event ID. If it already exists, the event is a redelivery and is skipped. This makes at-least-once delivery safe in practice: the first delivery succeeds, subsequent ones are no-ops.
 
 - **`common` module as the single source of truth for event types.** Duplicating `OrderPlaced` across services means the two copies can diverge — different field names, different types — causing silent deserialization failures. One shared module, one definition.
 
@@ -138,7 +138,7 @@ Returns `201 Created` with the new order ID.
 curl http://localhost:8080/orders/{id}/status
 ```
 
-Within a few seconds the status transitions from `PLACED` to `PAYMENT_PROCESSED` (or `FAILED` — payment-service simulates a 20% failure rate by default).
+Within a few seconds the status transitions from `PLACED` → `PAYMENT_PROCESSED` → `FULFILLED`. If payment fails (payment-service simulates a 20% failure rate by default), the status becomes `FAILED` and the event is routed to the DLQ.
 
 ### Load test
 
@@ -160,11 +160,12 @@ docker compose down
 ```
 order-processing/
 ├── common/                  # Sealed OrderEvent interface and permitted records
-├── order-service/           # REST API (POST /orders, GET /orders/{id}), Kafka producer + consumer
+├── order-service/           # REST API (POST /orders, GET /orders/{id}, GET /metrics), Kafka producer + consumer
 ├── payment-service/         # Kafka consumer, payment simulation, DLQ publisher
 ├── fulfillment-service/     # Kafka consumer, fulfillment processing, OrderFulfilled publisher
 ├── notification-service/    # Kafka fan-out consumer, structured notification logging
 ├── docker-compose.yml
+├── load-test.sh
 └── CLAUDE.md
 ```
 
@@ -185,4 +186,4 @@ mvn test -pl order-service -am
 mvn test -pl payment-service -am
 ```
 
-28 unit tests across four services (JUnit 5 + Mockito). Integration tests with Testcontainers for Kafka and MongoDB are planned for Stage 2.
+28 unit tests across four services (JUnit 5 + Mockito).
