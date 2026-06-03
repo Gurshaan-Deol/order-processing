@@ -1,20 +1,20 @@
 spring:
   application:
-    name: payment-service
+    name: fulfillment-service
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/orderdb}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: payment-service-group
+      group-id: fulfillment-service-group
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.gurshaandeol.orderprocessing.common.event"
-        spring.json.value.default.type: "com.gurshaandeol.orderprocessing.common.event.OrderPlaced"
+        spring.json.value.default.type: "com.gurshaandeol.orderprocessing.common.event.PaymentProcessed"
     listener:
       ack-mode: MANUAL_IMMEDIATE
     producer:
@@ -22,9 +22,6 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: true
-
-payment:
-  failure-rate: ${PAYMENT_FAILURE_RATE:0.2}
 
 logging:
   level:

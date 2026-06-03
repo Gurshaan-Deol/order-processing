@@ -82,5 +82,18 @@ services:
       mongodb:
         condition: service_healthy
 
+  fulfillment-service:
+    build:
+      context: .
+      dockerfile: fulfillment-service/Dockerfile
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/orderdb
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
 volumes:
   mongo-data:
