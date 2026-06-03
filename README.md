@@ -1,5 +1,7 @@
 # Order Processing System
 
+[![CI](https://github.com/Gurshaan-Deol/order-processing/actions/workflows/ci.yml/badge.svg)](https://github.com/Gurshaan-Deol/order-processing/actions/workflows/ci.yml)
+
 An event-driven order processing system built with Java 21, Spring Boot, Apache Kafka, and MongoDB. Demonstrates service-to-service communication over Kafka topics, at-least-once delivery with manual offset commits, dead letter queue handling, and deliberate use of Java 21 sealed interfaces and records for a compile-time-safe event hierarchy.
 
 ---
