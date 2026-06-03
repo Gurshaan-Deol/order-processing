@@ -1,6 +1,6 @@
 # Order Processing System
 
-An event-driven order processing system built with Java 17, Spring Boot, Apache Kafka, and MongoDB. Demonstrates service-to-service communication over Kafka topics, at-least-once delivery with manual offset commits, dead letter queue handling, and deliberate use of Java 17 sealed interfaces and records for a compile-time-safe event hierarchy.
+An event-driven order processing system built with Java 21, Spring Boot, Apache Kafka, and MongoDB. Demonstrates service-to-service communication over Kafka topics, at-least-once delivery with manual offset commits, dead letter queue handling, and deliberate use of Java 21 sealed interfaces and records for a compile-time-safe event hierarchy.
 
 ---
 
@@ -40,7 +40,7 @@ An event-driven order processing system built with Java 17, Spring Boot, Apache 
 
 | Layer            | Technology                          |
 |------------------|-------------------------------------|
-| Language         | Java 17                             |
+| Language         | Java 21                             |
 | Framework        | Spring Boot 3                       |
 | Messaging        | Apache Kafka (Confluent CP 7.6.0)   |
 | Database         | MongoDB 7.0                         |
@@ -50,13 +50,13 @@ An event-driven order processing system built with Java 17, Spring Boot, Apache 
 
 ---
 
-## Java 17 Features
+## Java 21 Features
 
 **Sealed interface for the event hierarchy (`OrderEvent`)**
 `OrderEvent` is a sealed interface permitting exactly `OrderPlaced`, `PaymentProcessed`, and `OrderFulfilled`. The compiler enforces exhaustiveness — if a new event type is added to the hierarchy, every switch expression that dispatches on `OrderEvent` becomes a compile error until the new case is handled. This makes the codebase structurally sound: you cannot forget to handle a new event type.
 
 **Pattern matching switch for consumer dispatch**
-Consumer logic uses `switch (event) { case OrderPlaced op -> ... }` instead of a chain of `instanceof` checks followed by explicit casts. The pattern variable is scoped to its branch and the cast is implied, removing a class of bugs where a cast and the preceding `instanceof` check get out of sync during refactoring.
+Consumer logic uses `switch (event) { case OrderPlaced op -> ... }` instead of a chain of `instanceof` checks followed by explicit casts. The pattern variable is scoped to its branch and the cast is implied, removing a class of bugs where a cast and the preceding `instanceof` check get out of sync during refactoring. Pattern matching switch on sealed interfaces is stable from Java 21 (JEP 441) — this is why the project targets Java 21 rather than Java 17, where it was only a preview feature.
 
 **Records for all event POJOs**
 `OrderPlaced`, `PaymentProcessed`, and `OrderFulfilled` are records. They are immutable by construction, implement `equals`/`hashCode`/`toString` correctly, and require no boilerplate. A Kafka event that mutates after it is published is a bug waiting to happen — records make that class of bug impossible.
@@ -81,7 +81,7 @@ Consumer logic uses `switch (event) { case OrderPlaced op -> ... }` instead of a
 
 ### Prerequisites
 
-- Java 17
+- Java 21
 - Maven 3.9+
 - Docker Desktop
 

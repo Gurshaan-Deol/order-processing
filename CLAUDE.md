@@ -7,7 +7,7 @@ This file tells Claude Code how to work on this project. Read it before touching
 
 ## What this project is
 
-An event-driven order processing system in Java 17 + Spring Boot + Kafka + MongoDB.
+An event-driven order processing system in Java 21 + Spring Boot + Kafka + MongoDB.
 It is a portfolio project for a CS internship application. Code quality and clarity matter more than feature completeness.
 
 ---
@@ -31,12 +31,12 @@ Each service is an independent Maven module. The `common` module is a shared lib
 
 ## Non-negotiable rules
 
-**Java 17 features must be used meaningfully:**
+**Java 21 features must be used meaningfully:**
 
 - `OrderEvent` MUST be a sealed interface in the `common` module
 - All event POJOs (OrderPlaced, PaymentProcessed, OrderFulfilled) MUST be records
 - Consumer dispatch MUST use pattern matching switch expressions — no instanceof chains
-- Do not add Java 17 features as decoration. If it doesn't make the code cleaner or safer, don't use it.
+- Do not add Java 21 features as decoration. If it doesn't make the code cleaner or safer, don't use it.
 
 **MongoDB, not SQL:**
 
@@ -157,7 +157,7 @@ This endpoint exists to give a quotable number for the resume. Make sure it's ac
 ## Questions to ask before writing code
 
 1. Does this belong in `common` or in the specific service?
-2. Am I using Java 17 features because they improve the code, or just to tick a box?
+2. Am I using Java 21 features because they improve the code, or just to tick a box?
 3. What happens to this code path if Kafka is down when the service starts?
 4. What happens if the same event is delivered twice?
 5. Does this error need to go to the DLQ or is it truly unrecoverable?
